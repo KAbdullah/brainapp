@@ -14,7 +14,7 @@ import './App.css';
 //  apiKey: '4318dbd6d36c4307901dcaf48c168c3f'
 // });
 
-const returnClarifaiRequestOptions = (imageurl) => {
+/*const returnClarifaiRequestOptions = (imageurl) => {
       // Your PAT (Personal Access Token) can be found in the portal under Authentification
   const PAT = '95dca3dcce2548fa987c29dd32af7cdb';
     // Specify the correct user_id/app_id pairings
@@ -51,19 +51,36 @@ const returnClarifaiRequestOptions = (imageurl) => {
   };
 
   return requestOptions
+}*/
+
+const initialState = {
+  input: '',
+  imageUrl: '',
+  box: {},
+  route: 'signin',
+  isSignedIn: false,
+  user: {
+    id: '',
+    name: '',
+    email: '',
+    entries: 0,
+    joined: ''
+  }
 }
-
-
 class App extends Component {
   constructor(props) {
     super(props);
-    this.state = {
-      input: '',
-      imageUrl: '',
-      box: {},
-      route: 'signin',
-      isSignedIn: false
-    }
+    this.state = initialState;
+  }
+
+  loadUser = (data) => {
+    this.setState({user: {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      entries: data.entries,
+      joined: data.joined
+    }})
   }
 
   calculateFaceLocation = (data) => {
@@ -84,22 +101,44 @@ class App extends Component {
   }
 
   onInputChange = (event) => {
-    this.setState({input: event.target.value})
+    this.setState({input: event.target.value});
   }
 
   onButtonSubmit = () => {
-    this.setState({imageUrl: this.state.input})
+    this.setState({imageUrl: this.state.input});
 
     // app.models.predict('face-detection', this.state.input)
-    fetch("https://api.clarifai.com/v2/models/face-detection/outputs", returnClarifaiRequestOptions(this.state.input))
+      fetch(' https://facedetector-api.onrender.com/imageurl', {
+        method: 'post',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          input: this.state.input
+        })
+      }) 
       .then(response => response.json())
-      .then(response => this.displayFaceBox(this.calculateFaceLocation(response)))
+      .then(response => {
+        if (response) {
+          fetch(' https://facedetector-api.onrender.com/image', {
+            method: 'put',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              id: this.state.user.id
+            })  
+          })
+          .then(response => response.json())
+          .then(count => {
+            this.setState(Object.assign(this.state.user, { entries: count }))
+          })
+          .catch(console.log)
+        }
+        this.displayFaceBox(this.calculateFaceLocation(response))
+      })
       .catch(err => console.log(err)); 
   }
 
   onRouteChange = (route) => {
     if (route === 'signout') {
-      this.setState({isSignedIn: false});
+      this.setState(initialState);
     } else if (route === 'home') {
       this.setState({isSignedIn: true});
     }
@@ -116,7 +155,10 @@ class App extends Component {
         { route === 'home'  
           ? <div> 
             <Logo />
-            <Rank />  
+            <Rank 
+            name={this.state.user.name}
+            entries={this.state.user.entries}
+            />  
             <ImageLinkForm 
             onInputChange={this.onInputChange} 
             onButtonSubmit={this.onButtonSubmit}
@@ -125,8 +167,8 @@ class App extends Component {
           </div>    
           : (
               route === 'signin' ? 
-              <Signin onRouteChange={this.onRouteChange}/>
-              : <Register onRouteChange={this.onRouteChange}/>
+              <Signin loadUser={this.loadUser} onRouteChange={this.onRouteChange}/>
+              : <Register loadUser={this.loadUser} onRouteChange={this.onRouteChange}/>
             ) 
       }
       </div>
